@@ -1,0 +1,38 @@
+{
+  "name": "vcd-proto",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "set NODE_PATH=./app&&set NODE_ENV=development&&nodemon --max-old-space-size=4076 index.js",
+    "worker": "set NODE_PATH=./app&&set NODE_ENV=development&&nodemon app/worker"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pod-proteinom/vcd-proto.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pod-proteinom/vcd-proto/issues"
+  },
+  "homepage": "https://github.com/pod-proteinom/vcd-proto#readme",
+  "dependencies": {
+    "bluebird": "^3.4.6",
+    "config": "^1.25.1",
+    "express": "^4.14.0",
+    "fs-reverse": "0.0.2",
+    "kue": "^0.11.5",
+    "mongoose": "^4.8.2",
+    "phantom": "^4.0.0",
+    "phantomjs": "^2.1.7",
+    "request": "^2.79.0",
+    "socket.io": "^1.7.2",
+    "socket.io-emitter": "^2.0.0",
+    "socket.io-redis": "^3.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0"
+  }
+}

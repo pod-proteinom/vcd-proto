@@ -1,0 +1,30 @@
+.container {
+    width: 800px;
+    padding: 0;
+    padding-top: 100px;
+}
+
+.wrapper {
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.plot svg {
+    display: inline-block;
+    margin-right: -4px;
+}
+
+.plot {
+}
+
+.current {
+    display: inline-block;
+    /*margin-right: -4px;*/
+}
+
+.after {
+    display: inline-block;
+    /*margin-right: -4px;*/
+    width: 800px;
+    
+}

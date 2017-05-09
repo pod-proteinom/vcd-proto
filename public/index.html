@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Chart</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="load-project" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-md" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Choose one of the projects:</h4>
+                </div>
+                <div class="modal-body">
+                    <select id="projects-list" class="form-control">
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-set-project" type="button" class="btn btn-default">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="load-vars" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myLargeModalLabel" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog modal-md" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Setting variables to show on the plot:</h4>
+                </div>
+                <div class="modal-body">
+                    <div id="modules"></div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-set-vars" type="button" class="btn btn-default">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="form-inline text-center">
+            <div class="form-group">
+                <label for="plot-from">From:</label>
+                <input type="text" class="form-control" id="plot-from">
+            </div>
+            <div class="form-group">
+                <label for="plot-to">To:</label>
+                <input type="text" class="form-control" id="plot-to">
+            </div>
+            <button id="btn-load-plot" class="btn btn-default" disabled>Get plot</button>
+        </div>
+        <div id="chart" class="wrapper">
+            <div class="scroll-wrapper">
+                <div class="plot">
+                    <div id="current-plot" class="current"></div>
+                        
+                    <!-- <div class="after"></div> -->
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.2/socket.io.js"></script>
+    <script>
+    (function($) {
+        var uniqueCntr = 0;
+        $.fn.scrolled = function(waitTime, fn) {
+            if (typeof waitTime === "function") {
+                fn = waitTime;
+                waitTime = 500;
+            }
+            var tag = "scrollTimer" + uniqueCntr++;
+            this.scroll(function() {
+                var self = $(this);
+                var timer = self.data(tag);
+                if (timer) {
+                    clearTimeout(timer);
+                }
+                timer = setTimeout(function() {
+                    self.removeData(tag);
+                    fn.call(self[0]);
+                }, waitTime);
+                self.data(tag, timer);
+            });
+        }
+    })(jQuery);
+
+    $(document).ready(function() {
+        socket.emit('projects.load');
+    });
+
+    var socket = io.connect('http://localhost:4000');
+    var ROW_WIDTH = 5;
+    var project = {};
+    project.load = {};
+
+    socket.on('projects.list', function(data) {
+        var projectsList = $('#projects-list');
+        $.each(data.files, function(key, value) {
+            projectsList.append($('<option></option>').attr('value', key).text(value));
+        });
+        $('#load-project').modal('show');
+    });
+
+    socket.on('plot.length', function(data) {
+        project.length = parseInt(data.time);
+    });
+
+    socket.on('vcd.modules', function(data) {
+        project.modules = data.modules;
+        var moduleList = $('#modules');
+        project.modules.forEach(module => {
+            moduleList.append('<p>' + module.name + '</p>');
+            moduleList.append('<div id="' + module.name + '"></div>');
+            var moduleName = $('#' + module.name);
+            var moduleVars = Object.keys(module.vars);
+            moduleVars.forEach(variable => {
+                moduleName.append('<label class="checkbox-inline"><input type="checkbox" name="' + variable + '" /> ' + variable + '</label>');
+            });
+        });
+        $('#load-vars').modal('show');
+    });
+
+    socket.on('vars.setted', function() {
+        var loadPlotTo = project.length <= 400 ? project.length : 200;
+        $('#plot-from').val(0);
+        $('#plot-to').val(loadPlotTo);
+        project.load.from = 0;
+        project.load.to = loadPlotTo;
+
+        socket.emit('plot.load', {
+            from: 0,
+            to: loadPlotTo
+        });
+    });
+
+    socket.on('data', function(data) {
+        $('#current-plot').append(data.svg);
+        var time = data.time;
+        if(time.end == project.load.to) {
+            $('#btn-load-plot').removeAttr("disabled");
+        }
+    });
+
+    $('.wrapper').scrolled(function() {
+        var time = {};
+        time.start = $(this).scrollLeft() / ROW_WIDTH;
+        console.log(time.start)
+    });
+
+    $('#btn-set-project').click(function() {
+        project.name = $('#projects-list option:selected').text();
+        socket.emit('init', {
+            name: project.name
+        });
+        $('#load-project').modal('hide');
+    });
+
+    $('#btn-set-vars').click(function() {
+        var singleVars = [];
+        var singleVarNames = [];
+        var multiVars = [];
+        var multiVarNames = [];
+
+        project.modules.forEach(module => {
+            var variables = module.vars;
+            var selectedVars = [];
+            $('#' + module.name + ' input:checked').each(function() {
+                selectedVars.push($(this).attr('name'));
+            });
+
+            selectedVars.forEach(variableName => {
+                if (variables[variableName].size > 1) {
+                    multiVars.push(variables[variableName].sym);
+                    multiVarNames.push(variableName);
+                } else {
+                    singleVars.push(variables[variableName].sym);
+                    singleVarNames.push(variableName);
+                }
+            });
+        });
+
+        
+        var varsToShow = singleVarNames.concat(multiVarNames);
+        if (varsToShow.length > 0) {
+            project.vars = {
+                singleVars,
+                multiVars,
+                varsToShow
+            }
+            var width = varsToShow.length * 40 + 1;
+            var svg = '<svg height="' + width + '" width="80">';
+            var y = 34;
+            varsToShow.forEach(variable => {
+                svg += '<text x="0" y="'+ y + '">' + variable +'</text>'
+                y+= 40;
+            });
+            svg += '</svg>';
+            project.svg = svg;
+            $('#current-plot').append(svg);
+            socket.emit('vars.set', {
+                singleVars,
+                multiVars
+            });
+            $('#load-vars').modal('hide');
+
+        }
+    });
+
+    $('#btn-load-plot').click(function() {
+        var from = parseInt($('#plot-from').val());
+        var to = parseInt($('#plot-to').val());
+
+        if(from >= 0 && to > 0 && to < project.length && from < to) {
+            $('#current-plot').empty();
+            $('#current-plot').append(project.svg);
+            project.load.from = from;
+            project.load.to = to;
+            socket.emit('plot.load', {
+                from: from, to: to
+            });
+        }
+    });
+    </script>
+</body>
+
+</html>
